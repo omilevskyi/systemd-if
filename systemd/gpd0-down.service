@@ -1,0 +1,7 @@
+[Unit]
+Description=Delete routes on host when gpd0 change state to down
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/systemd-if --file /opt/paloaltonetworks/globalprotect/network/config/rt-uninstall.sh stop gpd0.service
+SuccessExitStatus=0 1
