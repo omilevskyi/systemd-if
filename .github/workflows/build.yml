@@ -42,6 +42,12 @@ jobs:
           command: verify
           args: --ignore-merge-commits --ignore-fixup-commits --file ${{ steps.tmp.outputs.file }}
 
+      - name: Remove temporary file
+        if: steps.go.outputs.dirs != ''
+        run: rm --force -- "${FILE}"
+        env:
+          FILE: ${{ steps.tmp.outputs.file }}
+
       - name: Get next version
         id: next
         run: |
@@ -60,7 +66,7 @@ jobs:
             build-essential libsystemd-dev libcap-dev
 
       - name: Build project
-        run: make VERSION=${VERSION}
+        run: make VERSION="${VERSION}"
         env:
           VERSION: ${{ steps.next.outputs.version }}
 
@@ -74,9 +80,8 @@ jobs:
           name: ${{ env.PROG }}
           path: |
             LICENSE
-            ${{ env.PROG }}
-            ${{ env.PROG }}.1.gz
             nfpm.yaml
+            ${{ env.PROG }}
           retention-days: 1
           compression-level: 9
           overwrite: true
