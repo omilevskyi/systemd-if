@@ -1,0 +1,7 @@
+[Unit]
+Description=Start gpd0.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/systemd-if --file /opt/paloaltonetworks/globalprotect/network/config/rt-uninstall.sh start gpd0.service
+SuccessExitStatus=0 1

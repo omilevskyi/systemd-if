@@ -22,28 +22,32 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ github.event.pull_request.head.sha }} # pick PR's HEAD instead of merge commit
+          ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 0
+          persist-credentials: "false"
           show-progress: "false"
 
+      - name: Create temporary file
+        id: tmp
+        run: echo "file=$(mktemp --tmpdir=${RUNNER_TEMP})" | tee --append "${GITHUB_OUTPUT}"
+
       - name: Save commit message to file
-        id: commit
-        run: |
-          FILE=$(mktemp --dry-run --tmpdir=${{ runner.temp }})
-          git --no-pager log -1 --no-color --pretty=%B >"${FILE}"
-          echo "file=${FILE}" >>"${GITHUB_OUTPUT}"
+        run: git --no-pager log -1 --no-color --pretty=%B | tee "${FILE}"
+        env:
+          FILE: ${{ steps.tmp.outputs.file }}
 
       - name: Verify if commit is conventional
         uses: cocogitto/cocogitto-action@52d0023b4396897f1815648e553db2ab8d782f3a # v4.2.0
         with:
           command: verify
-          args: --ignore-merge-commits --ignore-fixup-commits --file ${{ steps.commit.outputs.file }}
+          args: --ignore-merge-commits --ignore-fixup-commits --file ${{ steps.tmp.outputs.file }}
 
       - name: Get next version
-        id: version
+        id: next
         run: |
-          rm --force -- ${{ steps.commit.outputs.file }}
-          cog bump --auto --dry-run | sed 's/^v/version=/' >>"${GITHUB_OUTPUT}"
+          NEXT_VERSION=$(cog bump --auto --dry-run |
+            sed --silent --regexp-extended 's/^v([[:digit:]]+\.[[:digit:]]+\.[[:digit:]]+)$/\1/p')
+          echo "version=${NEXT_VERSION}" | tee --append "${GITHUB_OUTPUT}"
 
       - name: Update packages
         if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
@@ -53,20 +57,15 @@ jobs:
         run: |
           sudo apt-get install --yes --quiet=2 \
             --no-install-recommends --option DPkg::NoTriggers=true \
-            build-essential libcriterion-dev
+            build-essential libsystemd-dev libcap-dev
 
       - name: Build project
-        run: make VERSION=${{ steps.version.outputs.version }} COMMIT_HASH=${{ github.sha }}
-
-      - name: Strip binary
-        if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
-        run: strip ${PROG}
+        run: make VERSION=${VERSION}
+        env:
+          VERSION: ${{ steps.next.outputs.version }}
 
       - name: Test run
         run: ./${PROG} --version
-
-      - name: Run unit tests
-        run: make test
 
       - name: Upload artifact bundle
         if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}

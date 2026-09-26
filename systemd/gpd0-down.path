@@ -1,0 +1,8 @@
+[Unit]
+Description=GlobalProtect DOWN
+
+[Path]
+PathModified=/opt/paloaltonetworks/globalprotect/network/config/reset-st-flow.sh
+
+[Install]
+WantedBy=multi-user.target

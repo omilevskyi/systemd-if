@@ -1,0 +1,10 @@
+[Unit]
+Description=Change route table on host when gpd0 change state
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/bin/bash /home/ipfw/bin/gpd0.sh start
+ExecStop=/usr/bin/bash /home/ipfw/bin/gpd0.sh stop
+User=ipfw
+SELinuxContext=system_u:system_r:unconfined_service_t:s0

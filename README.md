@@ -13,16 +13,16 @@ After upgrading GlobalProtect to version 6.3.3.1-674, VPN interfaces such as `gp
 - the VPN becomes connected ("VPN ON")
 - the VPN becomes disconnected ("VPN OFF")
 
-The utility acts as a conditional gateway between a triggering event and a target systemd unit. When condition evaluates to true, it forwards the requested action (`start`, `stop`, `restart`, `status`, etc.) to the specified target unit.
+The utility acts as a conditional gateway between a triggering event and a target systemd unit. When condition evaluates to true, it forwards the requested action (`start` or `stop`) to the specified target unit.
 
 ## Design Goals
 
 `systemd-if` was designed with minimal host impact in mind:
 
+- minimal run overhead
 - statically linked executable
 - small binary footprint
-- minimal runtime overhead
-- no long-running daemons
+- no daemons
 
 ## Typical Workflow
 
@@ -41,4 +41,4 @@ The utility acts as a conditional gateway between a triggering event and a targe
 
 ## License
 
-See the LICENSE file for details.
+BSD 3-Clause. See the LICENSE file for details.
