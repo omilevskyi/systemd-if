@@ -1,0 +1,40 @@
+---
+repos:
+  - repo: builtin
+    hooks:
+      - id: check-case-conflict
+      - id: check-merge-conflict
+      - id: check-illegal-windows-names
+      - id: check-executables-have-shebangs
+      - id: check-symlinks
+      - id: destroyed-symlinks
+      - id: detect-private-key
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+        args:
+          - --markdown-linebreak-ext=md
+      - id: check-json
+      - id: check-toml
+      - id: check-yaml
+      - id: no-commit-to-branch
+      - id: mixed-line-ending
+        args:
+          - --fix=lf
+
+  - repo: https://github.com/python-jsonschema/check-jsonschema
+    rev: 0.38.2
+    hooks:
+      - id: check-github-actions
+      - id: check-github-workflows
+
+  # - repo: https://github.com/zizmorcore/zizmor-pre-commit
+  #   rev: v1.30.1
+  #   hooks:
+  #     - id: zizmor
+  #       args: ["--config=.zizmor.yml", "--no-progress"]
+
+  - repo: https://github.com/homebysix/pre-commit-macadmin
+    rev: v1.25.1
+    hooks:
+      - id: check-git-config-email
+        args: ["--domains", "aerlingus.com"]

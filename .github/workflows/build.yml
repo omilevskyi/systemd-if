@@ -1,0 +1,83 @@
+---
+name: Build and Test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    name: Run Build and Tests
+    runs-on: ubuntu-24.04
+
+    env:
+      PROG: systemd-if
+
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha }} # pick PR's HEAD instead of merge commit
+          fetch-depth: 0
+          show-progress: "false"
+
+      - name: Save commit message to file
+        id: commit
+        run: |
+          FILE=$(mktemp --dry-run --tmpdir=${{ runner.temp }})
+          git --no-pager log -1 --no-color --pretty=%B >"${FILE}"
+          echo "file=${FILE}" >>"${GITHUB_OUTPUT}"
+
+      - name: Verify if commit is conventional
+        uses: cocogitto/cocogitto-action@52d0023b4396897f1815648e553db2ab8d782f3a # v4.2.0
+        with:
+          command: verify
+          args: --ignore-merge-commits --ignore-fixup-commits --file ${{ steps.commit.outputs.file }}
+
+      - name: Get next version
+        id: version
+        run: |
+          rm --force -- ${{ steps.commit.outputs.file }}
+          cog bump --auto --dry-run | sed 's/^v/version=/' >>"${GITHUB_OUTPUT}"
+
+      - name: Update packages
+        if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+        run: sudo apt-get update --yes --quiet=2 && sudo apt-get upgrade --yes --quiet=2
+
+      - name: Install build necessities
+        run: |
+          sudo apt-get install --yes --quiet=2 \
+            --no-install-recommends --option DPkg::NoTriggers=true \
+            build-essential libcriterion-dev
+
+      - name: Build project
+        run: make VERSION=${{ steps.version.outputs.version }} COMMIT_HASH=${{ github.sha }}
+
+      - name: Strip binary
+        if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+        run: strip ${PROG}
+
+      - name: Test run
+        run: ./${PROG} --version
+
+      - name: Run unit tests
+        run: make test
+
+      - name: Upload artifact bundle
+        if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: ${{ env.PROG }}
+          path: |
+            LICENSE
+            ${{ env.PROG }}
+            ${{ env.PROG }}.1.gz
+            nfpm.yaml
+          retention-days: 1
+          compression-level: 9
+          overwrite: true

@@ -1,0 +1,38 @@
+---
+name: Cppcheck (lint)
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  cppcheck:
+    name: Run cppcheck
+    if: ${{ github.ref != 'refs/heads/main' }}
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 1
+          show-progress: "false"
+
+      - name: Update packages
+        run: sudo apt-get update --yes --quiet=2 && sudo apt-get upgrade --yes --quiet=2
+
+      - name: Install
+        run: |
+          sudo apt-get install --yes --quiet=2 \
+            --no-install-recommends --option DPkg::NoTriggers=true cppcheck
+
+      - name: Run cppcheck
+        run: |
+          cppcheck \
+            --enable=all --inconclusive --check-level=exhaustive --force --error-exitcode=1 \
+            --language=c --std=c99 --platform=unix64 \
+            --suppress=missingIncludeSystem \
+            --suppress=checkersReport \
+            $(find . -name '*.c' -not -name 'test_*' -type f)

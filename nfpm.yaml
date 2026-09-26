@@ -1,0 +1,29 @@
+---
+name: systemd-if
+arch: amd64
+platform: linux
+version: ${VERSION}
+version_schema: semver
+section: utils
+priority: optional
+maintainer: "Oleksii Milevskyi <Oleksii.Milevskyi@aerlingus.com>"
+description: systemd-if - conditional wrapper for systemctl
+license: BSD3CLAUSE
+homepage: https://github.com/omilevskyi/systemd-if
+
+contents:
+  - src: ./systemd-if
+    dst: /usr/bin/systemd-if
+    file_info:
+      mode: 0755
+
+  - src: ./LICENSE
+    dst: /usr/share/licenses/systemd-if/LICENSE
+    file_info:
+      mode: 0644
+
+rpm:
+  compression: xz
+
+deb:
+  compression: xz
