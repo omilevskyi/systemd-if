@@ -46,7 +46,7 @@ jobs:
           set -o pipefail
           chmod +x ${DIST}/${PROG}
           ${DIST}/${PROG} --version | \
-            awk '{ printf("version=%s\n", $2) }' | \
+            awk '{ printf("version=%s\n", $1) }' | \
             tee --append "${GITHUB_OUTPUT}"
 
       - name: Install Cosign
@@ -59,7 +59,7 @@ jobs:
         run: |
           curl --fail --show-error --silent --location --remote-name \
             ${NFPM_URL}/releases/download/v${NFPM_VERSION}/${FILE}
-          echo "file=${FILE}" >>"${GITHUB_OUTPUT}"
+          echo "file=${FILE}" | tee --append "${GITHUB_OUTPUT}"
         env:
           FILE: checksums.txt
 
@@ -79,7 +79,7 @@ jobs:
         run: |
           curl --fail --show-error --silent --location --remote-name \
             ${NFPM_URL}/releases/download/v${NFPM_VERSION}/${FILE}
-          echo "file=${FILE}" >>"${GITHUB_OUTPUT}"
+          echo "file=${FILE}" | tee --append "${GITHUB_OUTPUT}"
         env:
           FILE: nfpm_${{ env.NFPM_VERSION }}_amd64.deb
 
@@ -122,9 +122,9 @@ jobs:
             --output-signature ${CHECKSUM_FILE}.sig \
             --output-certificate ${CHECKSUM_FILE}.pem
           cd "${old_dir}"
-          echo "file=${CHECKSUM_FILE}" >>"${GITHUB_OUTPUT}"
-          echo "sig_file=${CHECKSUM_FILE}.sig" >>"${GITHUB_OUTPUT}"
-          echo "pem_file=${CHECKSUM_FILE}.pem" >>"${GITHUB_OUTPUT}"
+          echo "file=${CHECKSUM_FILE}" | tee --append "${GITHUB_OUTPUT}"
+          echo "sig_file=${CHECKSUM_FILE}.sig" | tee --append "${GITHUB_OUTPUT}"
+          echo "pem_file=${CHECKSUM_FILE}.pem" | tee --append "${GITHUB_OUTPUT}"
 
       - name: Get certificate identity
         id: certificate_identity
