@@ -1,6 +1,19 @@
 CC	:= gcc
-CFLAGS	:= -Oz -s -Wall -Wextra -Wpedantic
-LDFLAGS	:= -static -s
+CFLAGS	:= -Oz -flto -s -Wall -Wextra -Wpedantic
+
+ifneq ($(strip $(VERSION)),)
+CFLAGS	+= -DVERSION=\"$(VERSION)\"
+endif
+
+LDFLAGS	:= -Oz -flto -s -static
+LDFLAGS	+= -Wl,-O3
+LDFLAGS	+= -Wl,-flto
+LDFLAGS	+= -Wl,--gc-sections
+LDFLAGS	+= -Wl,--as-needed
+LDFLAGS	+= -Wl,--sort-common
+LDFLAGS	+= -Wl,-z,pack-relative-relocs
+LDFLAGS	+= -Wl,-z,defs
+
 LDLIBS	:= -lsystemd -lcap
 
 TARGET	:= systemd-if
