@@ -1,0 +1,8 @@
+*.log
+*.bak*
+*.orig*
+*.png
+.*/
+Makefile
+Makefile.local
+systemd-if
