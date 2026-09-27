@@ -49,9 +49,9 @@ jobs:
       - name: Get build utilities release version
         id: version
         run: |
-          read -r COSIGN_VERSION < "${GITHUB_WORKSPACE}/.cosign-version"
+          read -r COSIGN_VERSION < .cosign-version
           echo "cosign=${COSIGN_VERSION}" | tee --append "${GITHUB_OUTPUT}"
-          read -r NFPM_VERSION < "${GITHUB_WORKSPACE}/.nfpm-version"
+          read -r NFPM_VERSION < .nfpm-version
           echo "nfpm=${NFPM_VERSION}" | tee --append "${GITHUB_OUTPUT}"
 
       - name: Install Cosign ${{ steps.cosign.outputs.version }}
