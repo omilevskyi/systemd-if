@@ -13,22 +13,27 @@ concurrency:
   group: release-${{ github.event.workflow_run.id }}
   cancel-in-progress: false
 
+env:
+  PROG: systemd-if
+
 jobs:
   publish:
     name: Publish GitHub Release
-    runs-on: ubuntu-24.04
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
-
-    env:
-      PROG: systemd-if
-      OIDC_ISSUER: https://token.actions.githubusercontent.com
-      NFPM_URL: https://github.com/goreleaser/nfpm
-      DIST: dist
+    runs-on: ubuntu-24.04
 
     permissions:
       actions: read
       contents: write
       id-token: write
+
+    env:
+      OIDC_ISSUER: https://token.actions.githubusercontent.com
+      NFPM_URL: https://github.com/goreleaser/nfpm
+      DIST: dist
+
+    outputs:
+      version: ${{ steps.next.outputs.version }}
 
     steps:
       - name: Download artifact from the triggering Build run
@@ -43,7 +48,7 @@ jobs:
         id: next
         run: |
           chmod +x "${DIST}/${PROG}"
-          VERSION=$("${DIST}/${PROG}" --version)
+          VERSION=$("${DIST}/${PROG}" --version | grep --extended-regexp '^[0-9]+\.[0-9]+\.[0-9]+$')
           echo "version=${VERSION}" | tee --append "${GITHUB_OUTPUT}"
 
       - name: Get build utilities release version
@@ -157,6 +162,7 @@ jobs:
           SIGSTORE_FILE: ${{ steps.file.outputs.sigstore }}
 
       - name: Create GitHub Release and upload assets  # zizmor: ignore[superfluous-actions]
+        if: steps.next.outputs.version != ''
         uses: softprops/action-gh-release@5be0e66d93ac7ed76da52eca8bb058f665c3a5fe # v2.4.2
         with:
           tag_name: v${{ steps.next.outputs.version }}
@@ -170,3 +176,32 @@ jobs:
             ${{ env.DIST }}/${{ env.PROG }}_${{ steps.next.outputs.version }}_amd64.deb
             ${{ env.DIST }}/${{ env.PROG }}_${{ steps.next.outputs.version }}_x86_64.apk
             ${{ env.DIST }}/${{ env.PROG }}_${{ steps.next.outputs.version }}_x86_64.ipk
+
+  cleanup:
+    name: Delete uploaded artifact
+    if: ${{ needs.publish.outputs.version == '' }}
+    runs-on: ubuntu-24.04
+
+    needs:
+      - publish
+
+    permissions:
+      actions: write
+
+    steps:
+      - name: Get Artifact ID
+        id: artifact
+        run: |
+          ARTIFACT_ID=$(gh api \
+              repos/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}/artifacts \
+              --jq '.artifacts[] | select(.name == "'"${PROG}"'") | .id')
+          echo "id=${ARTIFACT_ID}" | tee --append "${GITHUB_OUTPUT}"
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - name: Delete artifact ${{ steps.artifact.outputs.id }}
+        if: steps.artifact.outputs.id != ''
+        run: gh api --method DELETE repos/${GITHUB_REPOSITORY}/actions/artifacts/${ARTIFACT_ID}
+        env:
+          ARTIFACT_ID: ${{ steps.artifact.outputs.id }}
+          GH_TOKEN: ${{ github.token }}
