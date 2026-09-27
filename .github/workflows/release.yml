@@ -52,6 +52,7 @@ jobs:
           echo "version=${VERSION}" | tee --append "${GITHUB_OUTPUT}"
 
       - name: Get build utilities release version
+        if: steps.next.outputs.version != ''
         id: version
         run: |
           read -r COSIGN_VERSION < "${DIST}/.cosign-version"
@@ -129,9 +130,9 @@ jobs:
           old_dir="$(pwd)"
           cd "${DIST}"
           for pkg in apk archlinux deb ipk rpm; do
-            nfpm package --packager "${pkg}"
+            nfpm package --config .nfpm.yaml --packager "${pkg}"
           done
-          rm --force -- LICENSE nfpm.yaml .cosign-version .nfpm-version "${PROG}"
+          rm --force -- LICENSE .cosign-version .nfpm-version .nfpm.yaml "${PROG}"
           cd "${old_dir}"
         env:
           VERSION: ${{ steps.next.outputs.version }}

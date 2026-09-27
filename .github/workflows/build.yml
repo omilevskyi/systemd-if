@@ -50,7 +50,7 @@ jobs:
       - name: Get next version
         id: next
         run: |
-          NEXT_VERSION=$(cog bump --auto --dry-run |
+          NEXT_VERSION=$(cog --config .cog.toml bump --auto --dry-run |
             sed --silent --regexp-extended 's/^v([[:digit:]]+\.[[:digit:]]+\.[[:digit:]]+)$/\1/p')
           echo "version=${NEXT_VERSION}" | tee --append "${GITHUB_OUTPUT}"
 
@@ -82,9 +82,9 @@ jobs:
           name: ${{ env.PROG }}
           path: |
             LICENSE
-            nfpm.yaml
             .cosign-version
             .nfpm-version
+            .nfpm.yaml
             ${{ env.PROG }}
           compression-level: 9
           include-hidden-files: true
