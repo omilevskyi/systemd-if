@@ -40,7 +40,7 @@ The utility acts as a conditional gateway between a triggering event and a targe
 
 ## Caveats
 
-Although systemd.path units ([gpd0-up.path](blob/main/systemd/gpd0-up.path) and [gpd0-down.path](blob/main/systemd/gpd0-down.path)) may trigger custom services ([gpd0-up.service](blob/main/systemd/gpd0-up.service), [gpd0-down.service](blob/main/systemd/gpd0-down.service)) multiple times, the target [gpd0.service](blob/main/systemd/gpd0.service) is protected by systemd logic and will not actually start or stop more than once.
+Although systemd.path units ([gpd0-up.path](systemd/gpd0-up.path) and [gpd0-down.path](systemd/gpd0-down.path)) may trigger custom services ([gpd0-up.service](systemd/gpd0-up.service), [gpd0-down.service](systemd/gpd0-down.service)) multiple times, the target [gpd0.service](systemd/gpd0.service) is protected by systemd logic and will not actually start or stop more than once.
 
 ## License
 
