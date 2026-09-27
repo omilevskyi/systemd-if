@@ -83,6 +83,8 @@ jobs:
           path: |
             LICENSE
             nfpm.yaml
+            .cosign-version
+            .nfpm-version
             ${{ env.PROG }}
           retention-days: 1
           compression-level: 9
