@@ -189,7 +189,6 @@ jobs:
 
   cleanup:
     name: Delete uploaded artifact
-    if: ${{ needs.publish.outputs.version == '' }}
     runs-on: ubuntu-24.04
 
     needs:
@@ -202,9 +201,8 @@ jobs:
       - name: Get Artifact ID
         id: artifact
         run: |
-          ARTIFACT_ID=$(gh api \
-              repos/${GITHUB_REPOSITORY}/actions/runs/${RUN_ID}/artifacts \
-              --jq '.artifacts[] | select(.name == "'"${PROG}"'") | .id')
+          ARTIFACT_ID=$(gh api repos/${GITHUB_REPOSITORY}/actions/runs/${RUN_ID}/artifacts \
+            --jq '.artifacts[] | select(.name == "'"${PROG}"'") | .id')
           echo "id=${ARTIFACT_ID}" | tee --append "${GITHUB_OUTPUT}"
         env:
           GH_TOKEN: ${{ github.token }}
