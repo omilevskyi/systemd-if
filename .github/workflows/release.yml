@@ -118,7 +118,7 @@ jobs:
           for pkg in apk archlinux deb ipk rpm; do
             nfpm package --packager "${pkg}"
           done
-          rm --force -- LICENSE nfpm.yaml "${PROG}"
+          rm --force -- LICENSE nfpm.yaml .cosign-version .nfpm-version "${PROG}"
           cd "${old_dir}"
         env:
           VERSION: ${{ steps.next.outputs.version }}
