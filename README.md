@@ -37,8 +37,11 @@ The utility acts as a conditional gateway between a triggering event and a targe
 - Triggering automation when a VPN connection is established.
 - Triggering cleanup tasks when a VPN connection is terminated.
 - Managing services that should only run while connected to corporate VPN.
-- Working around VPN state detection limitations introduced by newer GlobalProtect releases.
+
+## Caveats
+
+Although systemd.path units (gpd0-up.path and gpd0-down.path) may trigger custom services (gpd0-up.service, gpd0-down.service) multiple times, the target gpd0.service is protected by systemd logic and will not actually start or stop more than once.
 
 ## License
 
-BSD 3-Clause. See the LICENSE file for details.
+BSD 3-Clause, see the LICENSE file for details.
