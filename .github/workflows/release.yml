@@ -143,7 +143,7 @@ jobs:
         id: file
         run: |
           TMPFILE=$(mktemp --tmpdir="${RUNNER_TEMP}")
-          trap "rm --force -- ${TMPFILE} INT HUP TERM EXIT"
+          trap "rm --force -- ${TMPFILE}" INT HUP TERM EXIT
           old_dir="$(pwd)"
           cd "${DIST}"
           find . -type f -print0 |
