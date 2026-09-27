@@ -1,5 +1,10 @@
 # systemd-if
 
+[![License](https://img.shields.io/badge/License-BSD%203--Clause-blue.svg)](https://raw.githubusercontent.com/omilevskyi/systemd-if/refs/heads/main/LICENSE)
+[![Release](https://img.shields.io/github/release/omilevskyi/systemd-if.svg)](https://github.com/omilevskyi/systemd-if/releases/latest)
+[![Powered by: nFPM](https://img.shields.io/badge/Powered%20by-nFPM-green.svg)](https://github.com/goreleaser/nfpm)
+[![Powered by: Cosign](https://img.shields.io/badge/Powered%20by-Cosign-blue.svg)](https://docs.sigstore.dev/quickstart/quickstart-cosign/)
+
 `systemd-if` is a lightweight conditional wrapper for `systemctl` designed to bridge a gap introduced by newer versions of GlobalProtect 6.3.3.1-674+.
 
 ## Background
@@ -54,7 +59,3 @@ cosign verify-blob \
   --bundle "CHECKSUM_${VERSION}.sha256.sigstore.json" \
   "https://github.com/omilevskyi/systemd-if/releases/download/v${VERSION}/CHECKSUM_${VERSION}.sha256"
 ```
-
-## License
-
-BSD 3-Clause, see the LICENSE file for details.
