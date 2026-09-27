@@ -61,6 +61,8 @@ jobs:
           curl --fail --show-error --silent --location --remote-name \
             ${NFPM_URL}/releases/download/v${NFPM_VERSION}/${SIGSTORE_FILE}
           echo "sigstore=${SIGSTORE_FILE}" | tee --append "${GITHUB_OUTPUT}"
+          curl --fail --show-error --silent --location --remote-name \
+            ${NFPM_URL}/releases/download/v${NFPM_VERSION}/${CHECKSUMS_FILE}
           echo "file=${CHECKSUMS_FILE}" | tee --append "${GITHUB_OUTPUT}"
         env:
           CHECKSUMS_FILE: checksums.txt
@@ -85,7 +87,7 @@ jobs:
         env:
           FILE: nfpm_${{ env.NFPM_VERSION }}_amd64.deb
 
-      - name: Verify nFPM
+      - name: Verify nFPM checksum
         run: sha256sum --ignore-missing --check ${CHECKSUMS_FILE}
         env:
           CHECKSUMS_FILE: ${{ steps.nfpm_checksums.outputs.file }}
