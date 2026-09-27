@@ -75,7 +75,6 @@ jobs:
           path: |
             LICENSE
             ${{ env.PROG }}
-            ${{ env.PROG }}.1.gz
             nfpm.yaml
           retention-days: 1
           compression-level: 9
