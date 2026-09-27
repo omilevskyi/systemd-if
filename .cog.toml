@@ -4,7 +4,6 @@ disable_changelog = true
 from_latest_tag = true
 ignore_fixup_commits = true
 ignore_merge_commits = true
-# monorepo_version_separator = "/"
 skip_untracked = true
 tag_prefix = "v"
 
