@@ -13,23 +13,27 @@ concurrency:
   group: release-${{ github.event.workflow_run.id }}
   cancel-in-progress: false
 
+env:
+  PROG: systemd-if
+
 jobs:
   publish:
     name: Publish GitHub Release
-    runs-on: ubuntu-24.04
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
-
-    env:
-      PROG: systemd-if
-      OIDC_ISSUER: https://token.actions.githubusercontent.com
-      NFPM_URL: https://github.com/goreleaser/nfpm
-      NFPM_VERSION: 2.47.0
-      DIST: dist
+    runs-on: ubuntu-24.04
 
     permissions:
       actions: read
       contents: write
       id-token: write
+
+    env:
+      OIDC_ISSUER: https://token.actions.githubusercontent.com
+      NFPM_URL: https://github.com/goreleaser/nfpm
+      DIST: dist
+
+    outputs:
+      version: ${{ steps.next.outputs.version }}
 
     steps:
       - name: Download artifact from the triggering Build run
@@ -43,18 +47,26 @@ jobs:
       - name: Get next version
         id: next
         run: |
-          set -o pipefail
           chmod +x "${DIST}/${PROG}"
-          "${DIST}/${PROG}" --version | \
-            awk '{ printf("version=%s\n", $1) }' | \
-            tee --append "${GITHUB_OUTPUT}"
+          VERSION=$("${DIST}/${PROG}" --version | sed --silent --regexp-extended 's/^([0-9]+\.[0-9]+\.[0-9]+)$/\1/p')
+          echo "version=${VERSION}" | tee --append "${GITHUB_OUTPUT}"
 
-      - name: Install Cosign
+      - name: Get build utilities release version
+        id: version
+        run: |
+          read -r COSIGN_VERSION < "${DIST}/.cosign-version"
+          echo "cosign=${COSIGN_VERSION}" | tee --append "${GITHUB_OUTPUT}"
+          read -r NFPM_VERSION < "${DIST}/.nfpm-version"
+          echo "nfpm=${NFPM_VERSION}" | tee --append "${GITHUB_OUTPUT}"
+
+      - name: Install Cosign ${{ steps.cosign.outputs.version }}
         uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+        if: steps.next.outputs.version != ''
         with:
-          cosign-release: v3.1.3
+          cosign-release: ${{ steps.version.outputs.cosign }}
 
       - name: Download nFPM checksums
+        if: steps.next.outputs.version != ''
         id: nfpm_checksums
         run: |
           SIGSTORE_FILE="${CHECKSUMS_FILE}.sigstore.json"
@@ -66,50 +78,66 @@ jobs:
           echo "file=${CHECKSUMS_FILE}" | tee --append "${GITHUB_OUTPUT}"
         env:
           CHECKSUMS_FILE: checksums.txt
+          NFPM_VERSION: ${{ steps.version.outputs.nfpm }}
 
       - name: Verify nFPM checksums
+        if: steps.next.outputs.version != ''
         run: |
           cosign verify-blob \
             --certificate-identity "${NFPM_URL}/.github/workflows/release.yml@refs/tags/v${NFPM_VERSION}" \
             --certificate-oidc-issuer "${OIDC_ISSUER}" \
-            --bundle "${CHECKSUMS_SIGSTORE}" \
+            --bundle "${SIGSTORE_FILE}" \
             "${CHECKSUMS_FILE}"
         env:
           CHECKSUMS_FILE: ${{ steps.nfpm_checksums.outputs.file }}
-          CHECKSUMS_SIGSTORE: ${{ steps.nfpm_checksums.outputs.sigstore }}
+          SIGSTORE_FILE: ${{ steps.nfpm_checksums.outputs.sigstore }}
+          NFPM_VERSION: ${{ steps.version.outputs.nfpm }}
 
-      - name: Download nFPM
+      - name: Get architecture
+        if: steps.next.outputs.version != ''
+        id: ubuntu
+        run: |
+          ARCH=$(dpkg --print-architecture)
+          echo "arch=${ARCH}" | tee --append "${GITHUB_OUTPUT}"
+
+      - name: Download nFPM ${{ steps.version.outputs.nfpm }} ${{ steps.ubuntu.outputs.arch }}
+        if: steps.next.outputs.version != ''
         id: nfpm
         run: |
           curl --fail --show-error --silent --location --remote-name \
             "${NFPM_URL}/releases/download/v${NFPM_VERSION}/${FILE}"
           echo "file=${FILE}" | tee --append "${GITHUB_OUTPUT}"
         env:
-          FILE: nfpm_${{ env.NFPM_VERSION }}_amd64.deb
+          FILE: nfpm_${{ steps.version.outputs.nfpm }}_${{ steps.ubuntu.outputs.arch }}.deb
+          NFPM_VERSION: ${{ steps.version.outputs.nfpm }}
 
       - name: Verify nFPM checksum
+        if: steps.next.outputs.version != ''
         run: sha256sum --ignore-missing --check "${CHECKSUMS_FILE}"
         env:
           CHECKSUMS_FILE: ${{ steps.nfpm_checksums.outputs.file }}
 
       - name: Install nFPM
+        if: steps.next.outputs.version != ''
         run: sudo dpkg --no-triggers --install "${FILE}"
         env:
           FILE: ${{ steps.nfpm.outputs.file }}
 
       - name: Create packages
+        if: steps.next.outputs.version != ''
         run: |
           old_dir="$(pwd)"
           cd "${DIST}"
           for pkg in apk archlinux deb ipk rpm; do
             nfpm package --packager "${pkg}"
           done
-          rm --force -- LICENSE nfpm.yaml "${PROG}"
+          rm --force -- LICENSE nfpm.yaml .cosign-version .nfpm-version "${PROG}"
           cd "${old_dir}"
         env:
           VERSION: ${{ steps.next.outputs.version }}
 
       - name: Create and sign checksums
+        if: steps.next.outputs.version != ''
         id: file
         run: |
           old_dir="$(pwd)"
@@ -129,6 +157,7 @@ jobs:
           CHECKSUM_FILE: CHECKSUM_${{ steps.next.outputs.version }}.sha256
 
       - name: Verify checksums
+        if: steps.next.outputs.version != ''
         run: |
           old_dir="$(pwd)"
           cd "${DIST}"
@@ -143,6 +172,7 @@ jobs:
           SIGSTORE_FILE: ${{ steps.file.outputs.sigstore }}
 
       - name: Create GitHub Release and upload assets  # zizmor: ignore[superfluous-actions]
+        if: steps.next.outputs.version != ''
         uses: softprops/action-gh-release@5be0e66d93ac7ed76da52eca8bb058f665c3a5fe # v2.4.2
         with:
           tag_name: v${{ steps.next.outputs.version }}
@@ -156,3 +186,33 @@ jobs:
             ${{ env.DIST }}/${{ env.PROG }}_${{ steps.next.outputs.version }}_amd64.deb
             ${{ env.DIST }}/${{ env.PROG }}_${{ steps.next.outputs.version }}_x86_64.apk
             ${{ env.DIST }}/${{ env.PROG }}_${{ steps.next.outputs.version }}_x86_64.ipk
+
+  cleanup:
+    name: Delete uploaded artifact
+    if: ${{ needs.publish.outputs.version == '' }}
+    runs-on: ubuntu-24.04
+
+    needs:
+      - publish
+
+    permissions:
+      actions: write
+
+    steps:
+      - name: Get Artifact ID
+        id: artifact
+        run: |
+          ARTIFACT_ID=$(gh api \
+              repos/${GITHUB_REPOSITORY}/actions/runs/${RUN_ID}/artifacts \
+              --jq '.artifacts[] | select(.name == "'"${PROG}"'") | .id')
+          echo "id=${ARTIFACT_ID}" | tee --append "${GITHUB_OUTPUT}"
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+
+      - name: Delete artifact ${{ steps.artifact.outputs.id }}
+        if: steps.artifact.outputs.id != ''
+        run: gh api --method DELETE repos/${GITHUB_REPOSITORY}/actions/artifacts/${ARTIFACT_ID}
+        env:
+          ARTIFACT_ID: ${{ steps.artifact.outputs.id }}
+          GH_TOKEN: ${{ github.token }}
