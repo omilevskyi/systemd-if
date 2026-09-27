@@ -48,12 +48,14 @@ jobs:
         id: next
         run: |
           chmod +x "${DIST}/${PROG}"
-          VERSION=$("${DIST}/${PROG}" --version | grep --extended-regexp '^[0-9]+\.[0-9]+\.[0-9]+$')
+          VERSION=$("${DIST}/${PROG}" --version | sed --silent --regexp-extended 's/^([0-9]+\.[0-9]+\.[0-9]+)$/\1/p')
           echo "version=${VERSION}" | tee --append "${GITHUB_OUTPUT}"
 
       - name: Get build utilities release version
         id: version
         run: |
+          realpath "${DIST}"
+          ls -la "${DIST}"
           read -r COSIGN_VERSION < "${DIST}/.cosign-version"
           echo "cosign=${COSIGN_VERSION}" | tee --append "${GITHUB_OUTPUT}"
           read -r NFPM_VERSION < "${DIST}/.nfpm-version"
