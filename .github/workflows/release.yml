@@ -41,7 +41,7 @@ jobs:
           github-token: ${{ github.token }}
 
       - name: Get next version
-        id: version
+        id: next
         run: |
           set -o pipefail
           chmod +x ${DIST}/${PROG}
@@ -73,7 +73,7 @@ jobs:
             --certificate-identity ${NFPM_URL}/.github/workflows/release.yml@refs/tags/v${NFPM_VERSION} \
             --certificate-oidc-issuer ${OIDC_ISSUER} \
             --bundle ${CHECKSUMS_SIGSTORE} \
-            ${NFPM_URL}/releases/download/v${NFPM_VERSION}/${CHECKSUMS_FILE}
+            ${CHECKSUMS_FILE}
         env:
           CHECKSUMS_FILE: ${{ steps.nfpm_checksums.outputs.file }}
           CHECKSUMS_SIGSTORE: ${{ steps.nfpm_checksums.outputs.sigstore }}
@@ -106,58 +106,50 @@ jobs:
           done
           rm --force -- LICENSE ${PROG} nfpm.yaml
           cd "${old_dir}"
+        env:
+          VERSION: ${{ steps.next.outputs.version }}
 
       - name: Create and sign checksums
-        id: checksum
+        id: file
         run: |
           old_dir="$(pwd)"
           cd ${DIST}
           find . -type f -print0 |
             sort --zero-terminated |
-            xargs --null --max-args=1 basename |
-            xargs ${CHECKSUM_FILE##*.}sum > ../${CHECKSUM_FILE}
-          mv --force --verbose ../${CHECKSUM_FILE} .
-          cosign sign-blob --yes ${CHECKSUM_FILE} \
-            --output-signature ${CHECKSUM_FILE}.sig \
-            --output-certificate ${CHECKSUM_FILE}.pem
+            xargs --null basename |
+            xargs ${CHECKSUM_FILE##*.}sum |
+            tee "../${CHECKSUM_FILE}"
+          mv --force --verbose "../${CHECKSUM_FILE}" .
+          SIGSTORE_FILE="${CHECKSUM_FILE}.sigstore.json"
+          cosign sign-blob --yes --bundle "${SIGSTORE_FILE}" "${CHECKSUM_FILE}"
           cd "${old_dir}"
-          echo "file=${CHECKSUM_FILE}" | tee --append "${GITHUB_OUTPUT}"
-          echo "sig_file=${CHECKSUM_FILE}.sig" | tee --append "${GITHUB_OUTPUT}"
-          echo "pem_file=${CHECKSUM_FILE}.pem" | tee --append "${GITHUB_OUTPUT}"
+          echo "checksum=${CHECKSUM_FILE}" | tee --append "${GITHUB_OUTPUT}"
+          echo "sigstore=${SIGSTORE_FILE}" | tee --append "${GITHUB_OUTPUT}"
         env:
-          CHECKSUM_FILE: ${{ steps.nfpm_checksums.outputs.file }}
-
-      - name: Get certificate identity
-        id: certificate_identity
-        run: |
-          echo "url=${GITHUB_SERVER_URL}/${GITHUB_WORKFLOW_REF}" | tee --append "${GITHUB_OUTPUT}"
+          CHECKSUM_FILE: CHECKSUM_${{ steps.next.outputs.version }}.sha256
 
       - name: Verify checksums
         run: |
           cosign verify-blob \
-            --certificate-identity ${CERTIFICATE_IDENTITY_URL} \
-            --certificate-oidc-issuer ${OIDC_ISSUER} \
-            --certificate ${DIST}/${CERTIFICATE_FILE} \
-            --signature ${DIST}/${SIGNATURE_FILE} \
-            ${DIST}/${CHECKSUM_FILE}
+            --certificate-identity "${GITHUB_SERVER_URL}/${GITHUB_WORKFLOW_REF}" \
+            --certificate-oidc-issuer "${OIDC_ISSUER}" \
+            --bundle "${CHECKSUMS_SIGSTORE}" \
+            "${CHECKSUMS_FILE}"
         env:
-          CERTIFICATE_IDENTITY_URL: ${{ steps.certificate_identity.outputs.url }}
-          CERTIFICATE_FILE: ${{ steps.checksum.outputs.pem_file }}
-          CHECKSUM_FILE: ${{ steps.checksum.outputs.file }}
-          SIGNATURE_FILE: ${{ steps.checksum.outputs.sig_file }}
+          CHECKSUM_FILE: ${{ steps.file.outputs.checksum }}
+          SIGSTORE_FILE: ${{ steps.file.outputs.sigstore }}
 
       - name: Create GitHub Release and upload assets  # zizmor: ignore[superfluous-actions]
         uses: softprops/action-gh-release@5be0e66d93ac7ed76da52eca8bb058f665c3a5fe # v2.4.2
         with:
-          tag_name: v${{ steps.version.outputs.version }}
+          tag_name: v${{ steps.next.outputs.version }}
           target_commitish: ${{ github.event.workflow_run.head_sha }}
           generate_release_notes: true
           files: |
-            ${{ env.DIST }}/${{ steps.checksum.outputs.file }}
-            ${{ env.DIST }}/${{ steps.checksum.outputs.sig_file }}
-            ${{ env.DIST }}/${{ steps.checksum.outputs.pem_file }}
-            ${{ env.DIST }}/${{ env.PROG }}-${{ steps.version.outputs.version }}*-x86_64.pkg.tar.zst
-            ${{ env.DIST }}/${{ env.PROG }}-${{ steps.version.outputs.version }}*.x86_64.rpm
-            ${{ env.DIST }}/${{ env.PROG }}_${{ steps.version.outputs.version }}_amd64.deb
-            ${{ env.DIST }}/${{ env.PROG }}_${{ steps.version.outputs.version }}_x86_64.apk
-            ${{ env.DIST }}/${{ env.PROG }}_${{ steps.version.outputs.version }}_x86_64.ipk
+            ${{ env.DIST }}/${{ steps.file.outputs.checksum }}
+            ${{ env.DIST }}/${{ steps.file.outputs.sigstore }}
+            ${{ env.DIST }}/${{ env.PROG }}-${{ steps.next.outputs.version }}*-x86_64.pkg.tar.zst
+            ${{ env.DIST }}/${{ env.PROG }}-${{ steps.next.outputs.version }}*.x86_64.rpm
+            ${{ env.DIST }}/${{ env.PROG }}_${{ steps.next.outputs.version }}_amd64.deb
+            ${{ env.DIST }}/${{ env.PROG }}_${{ steps.next.outputs.version }}_x86_64.apk
+            ${{ env.DIST }}/${{ env.PROG }}_${{ steps.next.outputs.version }}_x86_64.ipk
