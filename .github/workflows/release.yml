@@ -104,7 +104,7 @@ jobs:
           for pkg in apk archlinux deb ipk rpm; do
             nfpm package --packager "${pkg}"
           done
-          rm --force -- LICENSE "${PROG}" nfpm.yaml
+          rm --force -- LICENSE nfpm.yaml "${PROG}"
           cd "${old_dir}"
         env:
           VERSION: ${{ steps.next.outputs.version }}
@@ -113,7 +113,7 @@ jobs:
         id: file
         run: |
           old_dir="$(pwd)"
-          cd ${DIST}
+          cd "${DIST}"
           find . -type f -print0 |
             sort --zero-terminated |
             xargs --null --max-args=1 basename |
@@ -130,11 +130,14 @@ jobs:
 
       - name: Verify checksums
         run: |
+          old_dir="$(pwd)"
+          cd "${DIST}"
           cosign verify-blob \
             --certificate-identity "${GITHUB_SERVER_URL}/${GITHUB_WORKFLOW_REF}" \
             --certificate-oidc-issuer "${OIDC_ISSUER}" \
             --bundle "${SIGSTORE_FILE}" \
             "${CHECKSUM_FILE}"
+          cd "${old_dir}"
         env:
           CHECKSUM_FILE: ${{ steps.file.outputs.checksum }}
           SIGSTORE_FILE: ${{ steps.file.outputs.sigstore }}
