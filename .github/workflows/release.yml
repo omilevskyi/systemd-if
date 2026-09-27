@@ -23,7 +23,6 @@ jobs:
       PROG: systemd-if
       OIDC_ISSUER: https://token.actions.githubusercontent.com
       NFPM_URL: https://github.com/goreleaser/nfpm
-      NFPM_VERSION: 2.47.0
       DIST: dist
 
     permissions:
@@ -43,16 +42,22 @@ jobs:
       - name: Get next version
         id: next
         run: |
-          set -o pipefail
           chmod +x "${DIST}/${PROG}"
-          "${DIST}/${PROG}" --version | \
-            awk '{ printf("version=%s\n", $1) }' | \
-            tee --append "${GITHUB_OUTPUT}"
+          VERSION=$("${DIST}/${PROG}" --version)
+          echo "version=${VERSION}" | tee --append "${GITHUB_OUTPUT}"
 
-      - name: Install Cosign
+      - name: Get build utilities release version
+        id: version
+        run: |
+          read -r COSIGN_VERSION < "${GITHUB_WORKSPACE}/.cosign-version"
+          echo "cosign=${COSIGN_VERSION}" | tee --append "${GITHUB_OUTPUT}"
+          read -r NFPM_VERSION < "${GITHUB_WORKSPACE}/.nfpm-version"
+          echo "nfpm=${NFPM_VERSION}" | tee --append "${GITHUB_OUTPUT}"
+
+      - name: Install Cosign ${{ steps.cosign.outputs.version }}
         uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
         with:
-          cosign-release: v3.1.3
+          cosign-release: ${{ steps.version.outputs.cosign }}
 
       - name: Download nFPM checksums
         id: nfpm_checksums
@@ -66,26 +71,35 @@ jobs:
           echo "file=${CHECKSUMS_FILE}" | tee --append "${GITHUB_OUTPUT}"
         env:
           CHECKSUMS_FILE: checksums.txt
+          NFPM_VERSION: ${{ steps.version.outputs.nfpm }}
 
       - name: Verify nFPM checksums
         run: |
           cosign verify-blob \
             --certificate-identity "${NFPM_URL}/.github/workflows/release.yml@refs/tags/v${NFPM_VERSION}" \
             --certificate-oidc-issuer "${OIDC_ISSUER}" \
-            --bundle "${CHECKSUMS_SIGSTORE}" \
+            --bundle "${SIGSTORE_FILE}" \
             "${CHECKSUMS_FILE}"
         env:
           CHECKSUMS_FILE: ${{ steps.nfpm_checksums.outputs.file }}
-          CHECKSUMS_SIGSTORE: ${{ steps.nfpm_checksums.outputs.sigstore }}
+          SIGSTORE_FILE: ${{ steps.nfpm_checksums.outputs.sigstore }}
+          NFPM_VERSION: ${{ steps.version.outputs.nfpm }}
 
-      - name: Download nFPM
+      - name: Get architecture
+        id: ubuntu
+        run: |
+          ARCH=$(dpkg --print-architecture)
+          echo "arch=${ARCH}" | tee --append "${GITHUB_OUTPUT}"
+
+      - name: Download nFPM ${{ steps.version.outputs.nfpm }} ${{ steps.ubuntu.outputs.arch }}
         id: nfpm
         run: |
           curl --fail --show-error --silent --location --remote-name \
             "${NFPM_URL}/releases/download/v${NFPM_VERSION}/${FILE}"
           echo "file=${FILE}" | tee --append "${GITHUB_OUTPUT}"
         env:
-          FILE: nfpm_${{ env.NFPM_VERSION }}_amd64.deb
+          FILE: nfpm_${{ steps.version.outputs.nfpm }}_${{ steps.ubuntu.outputs.arch }}.deb
+          NFPM_VERSION: ${{ steps.version.outputs.nfpm }}
 
       - name: Verify nFPM checksum
         run: sha256sum --ignore-missing --check "${CHECKSUMS_FILE}"
