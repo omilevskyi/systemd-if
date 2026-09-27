@@ -86,6 +86,7 @@ jobs:
             .cosign-version
             .nfpm-version
             ${{ env.PROG }}
-          retention-days: 1
           compression-level: 9
+          include-hidden-files: true
           overwrite: true
+          retention-days: 1
