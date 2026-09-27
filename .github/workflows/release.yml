@@ -44,8 +44,8 @@ jobs:
         id: next
         run: |
           set -o pipefail
-          chmod +x ${DIST}/${PROG}
-          ${DIST}/${PROG} --version | \
+          chmod +x "${DIST}/${PROG}"
+          "${DIST}/${PROG}" --version | \
             awk '{ printf("version=%s\n", $1) }' | \
             tee --append "${GITHUB_OUTPUT}"
 
@@ -59,10 +59,10 @@ jobs:
         run: |
           SIGSTORE_FILE="${CHECKSUMS_FILE}.sigstore.json"
           curl --fail --show-error --silent --location --remote-name \
-            ${NFPM_URL}/releases/download/v${NFPM_VERSION}/${SIGSTORE_FILE}
+            "${NFPM_URL}/releases/download/v${NFPM_VERSION}/${SIGSTORE_FILE}"
           echo "sigstore=${SIGSTORE_FILE}" | tee --append "${GITHUB_OUTPUT}"
           curl --fail --show-error --silent --location --remote-name \
-            ${NFPM_URL}/releases/download/v${NFPM_VERSION}/${CHECKSUMS_FILE}
+            "${NFPM_URL}/releases/download/v${NFPM_VERSION}/${CHECKSUMS_FILE}"
           echo "file=${CHECKSUMS_FILE}" | tee --append "${GITHUB_OUTPUT}"
         env:
           CHECKSUMS_FILE: checksums.txt
@@ -70,10 +70,10 @@ jobs:
       - name: Verify nFPM checksums
         run: |
           cosign verify-blob \
-            --certificate-identity ${NFPM_URL}/.github/workflows/release.yml@refs/tags/v${NFPM_VERSION} \
-            --certificate-oidc-issuer ${OIDC_ISSUER} \
-            --bundle ${CHECKSUMS_SIGSTORE} \
-            ${CHECKSUMS_FILE}
+            --certificate-identity "${NFPM_URL}/.github/workflows/release.yml@refs/tags/v${NFPM_VERSION}" \
+            --certificate-oidc-issuer "${OIDC_ISSUER}" \
+            --bundle "${CHECKSUMS_SIGSTORE}" \
+            "${CHECKSUMS_FILE}"
         env:
           CHECKSUMS_FILE: ${{ steps.nfpm_checksums.outputs.file }}
           CHECKSUMS_SIGSTORE: ${{ steps.nfpm_checksums.outputs.sigstore }}
@@ -82,29 +82,29 @@ jobs:
         id: nfpm
         run: |
           curl --fail --show-error --silent --location --remote-name \
-            ${NFPM_URL}/releases/download/v${NFPM_VERSION}/${FILE}
+            "${NFPM_URL}/releases/download/v${NFPM_VERSION}/${FILE}"
           echo "file=${FILE}" | tee --append "${GITHUB_OUTPUT}"
         env:
           FILE: nfpm_${{ env.NFPM_VERSION }}_amd64.deb
 
       - name: Verify nFPM checksum
-        run: sha256sum --ignore-missing --check ${CHECKSUMS_FILE}
+        run: sha256sum --ignore-missing --check "${CHECKSUMS_FILE}"
         env:
           CHECKSUMS_FILE: ${{ steps.nfpm_checksums.outputs.file }}
 
       - name: Install nFPM
-        run: sudo dpkg --no-triggers --install ${FILE}
+        run: sudo dpkg --no-triggers --install "${FILE}"
         env:
           FILE: ${{ steps.nfpm.outputs.file }}
 
       - name: Create packages
         run: |
           old_dir="$(pwd)"
-          cd ${DIST}
+          cd "${DIST}"
           for pkg in apk archlinux deb ipk rpm; do
             nfpm package --packager "${pkg}"
           done
-          rm --force -- LICENSE ${PROG} nfpm.yaml
+          rm --force -- LICENSE "${PROG}" nfpm.yaml
           cd "${old_dir}"
         env:
           VERSION: ${{ steps.next.outputs.version }}
@@ -116,8 +116,8 @@ jobs:
           cd ${DIST}
           find . -type f -print0 |
             sort --zero-terminated |
-            xargs --null basename |
-            xargs ${CHECKSUM_FILE##*.}sum |
+            xargs --null --max-args=1 basename |
+            xargs "${CHECKSUM_FILE##*.}sum" |
             tee "../${CHECKSUM_FILE}"
           mv --force --verbose "../${CHECKSUM_FILE}" .
           SIGSTORE_FILE="${CHECKSUM_FILE}.sigstore.json"
@@ -133,8 +133,8 @@ jobs:
           cosign verify-blob \
             --certificate-identity "${GITHUB_SERVER_URL}/${GITHUB_WORKFLOW_REF}" \
             --certificate-oidc-issuer "${OIDC_ISSUER}" \
-            --bundle "${CHECKSUMS_SIGSTORE}" \
-            "${CHECKSUMS_FILE}"
+            --bundle "${SIGSTORE_FILE}" \
+            "${CHECKSUM_FILE}"
         env:
           CHECKSUM_FILE: ${{ steps.file.outputs.checksum }}
           SIGSTORE_FILE: ${{ steps.file.outputs.sigstore }}
