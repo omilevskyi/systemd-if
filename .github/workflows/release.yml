@@ -48,7 +48,8 @@ jobs:
         id: next
         run: |
           chmod +x "${DIST}/${PROG}"
-          VERSION=$("${DIST}/${PROG}" --version | sed --silent --regexp-extended 's/^([0-9]+\.[0-9]+\.[0-9]+)$/\1/p')
+          VERSION=$("${DIST}/${PROG}" --version |
+            sed --silent --regexp-extended 's/^([[:digit:]]+\.[[:digit:]]+\.[[:digit:]]+)$/\1/p')
           echo "version=${VERSION}" | tee --append "${GITHUB_OUTPUT}"
 
       - name: Get build utilities release version
@@ -141,14 +142,16 @@ jobs:
         if: steps.next.outputs.version != ''
         id: file
         run: |
+          TMPFILE=$(mktemp --tmpdir="${RUNNER_TEMP}")
+          trap "rm --force -- ${TMPFILE} INT HUP TERM EXIT"
           old_dir="$(pwd)"
           cd "${DIST}"
           find . -type f -print0 |
             sort --zero-terminated |
             xargs --null --max-args=1 basename |
             xargs "${CHECKSUM_FILE##*.}sum" |
-            tee "../${CHECKSUM_FILE}"
-          mv --force --verbose "../${CHECKSUM_FILE}" .
+            tee "${TMPFILE}"
+          mv --force --verbose "${TMPFILE}" "${CHECKSUM_FILE}"
           SIGSTORE_FILE="${CHECKSUM_FILE}.sigstore.json"
           cosign sign-blob --yes --bundle "${SIGSTORE_FILE}" "${CHECKSUM_FILE}"
           cd "${old_dir}"
@@ -160,14 +163,11 @@ jobs:
       - name: Verify checksums
         if: steps.next.outputs.version != ''
         run: |
-          old_dir="$(pwd)"
-          cd "${DIST}"
           cosign verify-blob \
             --certificate-identity "${GITHUB_SERVER_URL}/${GITHUB_WORKFLOW_REF}" \
             --certificate-oidc-issuer "${OIDC_ISSUER}" \
-            --bundle "${SIGSTORE_FILE}" \
-            "${CHECKSUM_FILE}"
-          cd "${old_dir}"
+            --bundle "${DIST}/${SIGSTORE_FILE}" \
+            "${DIST}/${CHECKSUM_FILE}"
         env:
           CHECKSUM_FILE: ${{ steps.file.outputs.checksum }}
           SIGSTORE_FILE: ${{ steps.file.outputs.sigstore }}
