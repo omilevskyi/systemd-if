@@ -42,6 +42,19 @@ The utility acts as a conditional gateway between a triggering event and a targe
 
 Although systemd.path units ([gpd0-up.path](systemd/gpd0-up.path) and [gpd0-down.path](systemd/gpd0-down.path)) may trigger custom services ([gpd0-up.service](systemd/gpd0-up.service), [gpd0-down.service](systemd/gpd0-down.service)) multiple times, the target [gpd0.service](systemd/gpd0.service) is protected by systemd logic and will not actually start or stop more than once.
 
+## Verification of the authenticity
+
+```sh
+export VERSION=0.0.3
+curl --fail --show-error --silent --location --remote-name \
+  "https://github.com/omilevskyi/systemd-if/releases/download/v${VERSION}/CHECKSUM_${VERSION}.sha256.sigstore.json"
+cosign verify-blob \
+  --certificate-identity https://github.com/omilevskyi/systemd-if/.github/workflows/release.yml@refs/heads/main \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+  --bundle "CHECKSUM_${VERSION}.sha256.sigstore.json" \
+  "https://github.com/omilevskyi/systemd-if/releases/download/v${VERSION}/CHECKSUM_${VERSION}.sha256"
+```
+
 ## License
 
 BSD 3-Clause, see the LICENSE file for details.
